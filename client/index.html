@@ -11,11 +11,12 @@
   <h2>Local Video</h2>
   <video id="localVideo" autoplay muted></video>
   <div>
-    <input type="text" name="streamer" placeholder="nameStreamer">
-    <button id="startRecord" disabled>Lancement de l'enregistrement</button>
+    <input type="text" name="streamer" placeholder="nameStreamer" value="Catif">
+    <button id="startRecord">Lancement de l'enregistrement</button>
     <button id="stopRecord" disabled>Arrêter l'enregistrement</button>
   </div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.js"></script>
   <script>
     // DOM elements
     var localVideo = document.getElementById('localVideo');
@@ -30,7 +31,7 @@
     
     // Variable de configuration
     var segmentLengthInMs = 500;
-    var serverSocket = 'ws://localhost:9999';
+    var serverSocket = 'ws://localhost:3000';
     var constraints = {
       audio: true,
       video: true
@@ -46,19 +47,26 @@
           startRecordBtn.disabled = true;
           stopRecordBtn.disabled = false;
 
-          socket = new WebSocket(`${serverSocket}?role=streamer&id=${streamer.value}`);
+          socket = new io(serverSocket, {
+            query: {
+              role: 'streamer',
+              id: streamer.value
+            }
+          });
 
           localVideo.srcObject = stream;
           console.log(stream);
 
           // Evenement de connexion au serveur
-          socket.addEventListener('open', (event) => {
+          socket.on('connect', (event) => {
             // Création d'un MediaRecorder pour l'enregistrement
             mediaRecorder = new MediaRecorder(stream);
 
             // Envoi des données au serveur à chaque segment créé
             mediaRecorder.addEventListener('dataavailable', (event) => {
-              socket.send(event.data);
+              socket.emit('streamVideo', {
+                video: event.data,
+              });
             });
 
             // Démarrage de l'enregistrement avec la durée d'un segment
@@ -74,8 +82,9 @@
       streamer.disabled = false;
       startRecordBtn.disabled = false;
       stopRecordBtn.disabled = true;
+      
       mediaRecorder.stop();
-      socket.close();
+      socket.disconnect();
     }
 
     function inputStreamer(){

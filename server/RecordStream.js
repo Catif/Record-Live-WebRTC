@@ -1,23 +1,32 @@
 const { createWriteStream, statSync, unlinkSync } = require("fs");
 const ffmpeg = require("fluent-ffmpeg");
-const url = require("url");
 
-const WebSocket = require("ws");
-const wss = new WebSocket.Server({ port: 9999 });
+const { createServer } = require("http");
+const httpServer = createServer();
+const port = 3000;
+const { Server } = require("socket.io");
+const io = new Server(httpServer, {
+  cors: {
+    origin: "http://localhost:8000",
+    methods: ["GET", "POST"],
+  },
+});
 
 // Const folder video
 const folderTemp = "./video/temp";
 const folderTranscode = "./video/transcode";
 
-// Gestion des streams
-wss.on("connection", (socket, req) => {
-  console.log("Client connected");
+// ============================================
+// Gestion des événements WebSocket (socket.io)
+// ============================================
+io.on("connection", (socket) => {
+  console.log("New connection");
 
-  const parameters = url.parse(req.url, true);
+  const parameters = socket.handshake.query;
 
-  if (parameters.query.role && parameters.query.id) {
-    socket.role = parameters.query.role;
-    socket.id = parameters.query.id;
+  if (parameters.role && parameters.id) {
+    socket.role = parameters.role;
+    socket.id = parameters.id;
 
     if (socket.role == "streamer") {
       console.log("Client connected as streamer");
@@ -32,17 +41,17 @@ wss.on("connection", (socket, req) => {
     socket.close();
   }
 
-  socket.on("message", (message) => {
+  socket.on("streamVideo", (message) => {
     if (socket.role == "streamer") {
       if (!tempFile) {
         console.log("Stream started");
         tempFile = createWriteStream(`${folderTemp}/${filename}.tmp`);
       }
-      tempFile.write(message);
+      tempFile.write(message.video);
     }
   });
 
-  socket.on("close", () => {
+  socket.on("disconnect", () => {
     if (socket.role == "streamer") {
       console.log("Fin d'un stream");
 
@@ -50,12 +59,12 @@ wss.on("connection", (socket, req) => {
       transcodeVideo(filename);
 
       // Fermeture des viewers
-      wss.clients.forEach((client) => {
-        if (client.role == "viewer" && client.id == socket.id) {
-          client.close();
-          console.log("Viewer disconnected by ending stream");
-        }
-      });
+      // wss.clients.forEach((client) => {
+      //   if (client.role == "viewer" && client.id == socket.id) {
+      //     client.close();
+      //     console.log("Viewer disconnected by ending stream");
+      //   }
+      // });
     } else if (socket.role == "viewer") {
       console.log("Viewer disconnected");
     }
@@ -84,22 +93,33 @@ function transcodeVideo(filename) {
   const codec = "libx264"; // libx264, libx265, libvpx, libvpx-vp9, libaom-av1
   const preset = "ultrafast"; // Processeur => test avec 1min de vidéo : ultrafast (10s), superfast(21s), veryfast(24s), faster(34s), fast(36s), medium, slow, slower, veryslow
   const quality = 22; // Stockage => test avec 1min de vidéo : 0 (100-150Mo) à 51 (3Mo)  ==>  15 (70Mo)
-  let startTime = performance.now();
 
+  // Path
+  let pathFileTemp = `${folderTemp}/${filename}.tmp`;
+  let pathFileTranscode = `${folderTranscode}/${filename}.${extensionFile}`;
+
+  // Transcode
+  let startTime = performance.now();
   ffmpeg()
-    .input(`${folderTemp}/${filename}.tmp`)
+    .input(pathFileTemp)
     .withVideoCodec(codec)
     .addOption("-preset", preset)
     .addOption("-crf", quality)
-    .output(`${folderTranscode}/${filename}.${extensionFile}`)
+    .output(pathFileTranscode)
     .on("end", () => {
+      // Calcul du temps de conversion
       let endTime = performance.now();
       let durationTranscode = Math.round(endTime - startTime) / 1000;
 
       console.log("Conversion complete");
 
-      getStatFile(`${folderTranscode}/${filename}.${extensionFile}`, durationTranscode);
-      unlinkSync(`${folderTemp}/${filename}.tmp`); // Delete file temp
+      getStatFile(pathFileTranscode, durationTranscode);
+      unlinkSync(pathFileTemp); // Delete file temp
     })
     .run();
 }
+
+// ==============================
+//          Lancement
+// ==============================
+httpServer.listen(port);
