@@ -1,78 +1,77 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Viewer side</title>
-</head>
-<body>
-  <div id="list-streamer">
-    <p id="alerte"></p>
-    <input type="text" name="streamer" placeholder="nameStreamer" value="Catif">
-    <button id="search">Regarder</button>
-  </div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Viewer side</title>
+  </head>
+  <body>
+    <div id="list-streamer">
+      <p id="alerte"></p>
+      <input type="text" name="streamer" placeholder="nameStreamer" value="Catif" />
+      <button id="search">Regarder</button>
+    </div>
 
-  <div id="video">
-    <video controls autoplay muted></video>
-  </div>
+    <video id="remoteStream" controls autoplay muted playsinline></video>
 
-
-  
-  
-  
-  <script>
-    window.addEventListener('load', () => {
-      const alert = document.querySelector('#alerte');
+    <script src="https://muazkhan.com:9001/dist/RTCMultiConnection.min.js"></script>
+    <script src="https://muazkhan.com:9001/socket.io/socket.io.js"></script>
+    <script>
+      const alert = document.querySelector("#alerte");
       const nameStreamer = document.querySelector('input[name="streamer"]');
-      const search = document.querySelector('#search');
-      const video = document.querySelector('video');
+      const search = document.querySelector("#search");
+      const video = document.querySelector("#remoteStream");
 
-      search.addEventListener('click', searchStream);
+      search.addEventListener("click", () => {
+        connection.sdpConstraints.mandatory = {
+          OfferToReceiveAudio: true,
+          OfferToReceiveVideo: true,
+        };
+        connection.join(nameStreamer.value);
+      });
 
-      function searchStream(){
-        if(nameStreamer.value === ''){
-          alert.innerHTML = 'Veuillez entrer un nom de streamer';
-        } else{
-          alert.innerHTML = 'Connexion au serveur...';
-          // Récupération du stream
-          var serverSocket = 'ws://localhost:9999';
-          var socket = new WebSocket(`${serverSocket}?role=viewer&id=${nameStreamer.value}`);
-          
-          socket.onerror = (error) => {
-            console.log(error);
-          };
-          
-          socket.onopen =() => {
-            alert.innerHTML = 'Connexion établie avec le serveur, recherche du streamer...';
-          };
+      var connection = new RTCMultiConnection();
+      connection.socketURL = "http://localhost:3000/";
+      connection.socketMessageEvent = "live-viewer";
 
-          const mediaSource = new MediaSource();
-          video.src = URL.createObjectURL(mediaSource);
-          const segments = [];
+      connection.sdpConstraints.mandatory = {
+        OfferToReceiveAudio: false,
+        OfferToReceiveVideo: false,
+      };
 
-          mediaSource.addEventListener('sourceopen', () => {
-            const sourceBuffer = mediaSource.addSourceBuffer('video/webm; codecs="vp8"');
-            
-            sourceBuffer.addEventListener('updateend', () => {
-              if (segments.length > 0) {
-                sourceBuffer.appendBuffer(segments.shift());
-              }
-            });
-          });
-          
-          socket.onmessage = (event) => {
+      connection.session = {
+        audio: true,
+        video: true,
+        oneway: true,
+      };
 
-            segments.push(event.data);
-          };
-        }
-      }
-    })
+      connection.iceServers = [
+        {
+          urls: [
+            "stun:stun.l.google.com:19302",
+            "stun:stun1.l.google.com:19302",
+            "stun:stun2.l.google.com:19302",
+            "stun:stun.l.google.com:19302?transport=udp",
+          ],
+        },
+      ];
 
+      connection.onstream = function (event) {
+        console.log(event);
+        video.srcObject = event.stream;
+      };
 
+      connection.onstreamended = function (event) {
+        alert("Broadcast is ended.");
 
+        video.srcObject = null;
 
-
-  </script>
-</body>
+        connection.sdpConstraints.mandatory = {
+          OfferToReceiveAudio: false,
+          OfferToReceiveVideo: false,
+        };
+      };
+    </script>
+  </body>
 </html>

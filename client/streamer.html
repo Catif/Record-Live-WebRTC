@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Record en temp réel</title>
+  </head>
+  <body>
+    <h1>Record en temp réel</h1>
+    <h2>Local Video</h2>
+    <video id="localVideo" autoplay muted playsinline></video>
+    <div>
+      <input type="text" name="streamer" placeholder="nameStreamer" value="Catif" />
+      <button id="startRecord">Lancement de l'enregistrement</button>
+      <button id="stopRecord" disabled>Arrêter l'enregistrement</button>
+    </div>
+    <script src="https://muazkhan.com:9001/dist/RTCMultiConnection.min.js"></script>
+    <script src="https://muazkhan.com:9001/socket.io/socket.io.js"></script>
+    <script>
+      // ===========================
+      // DOM elements
+      // ===========================
+      var localVideo = document.getElementById("localVideo");
+      var startRecordBtn = document.getElementById("startRecord");
+      var stopRecordBtn = document.getElementById("stopRecord");
+      var streamer = document.querySelector('input[name="streamer"]');
+
+      // ===========================
+      // Event listeners
+      // ===========================
+      streamer.addEventListener("input", () => {
+        if (streamer.value === "") {
+          startRecordBtn.disabled = true;
+          stopRecordBtn.disabled = true;
+        } else {
+          startRecordBtn.disabled = false;
+        }
+      });
+      stopRecordBtn.addEventListener("click", () => {
+        connection.closeSocket();
+        streamer.disabled = false;
+        startRecordBtn.disabled = false;
+        stopRecordBtn.disabled = true;
+
+        mediaRecorder.stop();
+        localVideo.srcObject = null;
+      });
+      startRecordBtn.addEventListener("click", () => {
+        streamer.disabled = true;
+        startRecordBtn.disabled = true;
+        stopRecordBtn.disabled = false;
+
+        connection.open(streamer.value);
+      });
+
+      // ===========================
+      // Variable de configuration
+      // ===========================
+      var mediaRecorder;
+      var segmentLengthInMs = 500;
+      var constraints = {
+        audio: true,
+        video: true,
+      };
+      var connection = new RTCMultiConnection();
+      connection.socketURL = "http://localhost:3000/";
+
+      connection.socketMessageEvent = "live-streamer";
+
+      connection.session = {
+        audio: true,
+        video: true,
+        oneway: true,
+      };
+
+      connection.sdpConstraints.mandatory = {
+        OfferToReceiveAudio: false,
+        OfferToReceiveVideo: false,
+      };
+
+      connection.onstream = function (event) {
+        localVideo.srcObject = event.stream;
+
+        // Création d'un MediaRecorder pour l'enregistrement
+        mediaRecorder = new MediaRecorder(event.stream);
+
+        // Envoi des données au serveur à chaque segment créé
+        mediaRecorder.addEventListener("dataavailable", (e) => {
+          if (connection.socket) {
+            connection.socket.emit("recordVideo", {
+              video: e.data,
+            });
+          } else {
+            mediaRecorder.stop();
+          }
+        });
+        // Démarrage de l'enregistrement avec la durée d'un segment
+        mediaRecorder.start(segmentLengthInMs);
+      };
+    </script>
+  </body>
+</html>

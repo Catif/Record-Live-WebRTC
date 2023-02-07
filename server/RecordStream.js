@@ -4,13 +4,14 @@ const ffmpeg = require("fluent-ffmpeg");
 const { createServer } = require("http");
 const httpServer = createServer();
 const port = 3000;
-const { Server } = require("socket.io");
-const io = new Server(httpServer, {
+const io = require("socket.io")(httpServer, {
   cors: {
-    origin: "http://localhost:8000",
+    origin: "*",
     methods: ["GET", "POST"],
   },
 });
+
+const RTCMultiConnectionServer = require("rtcmulticonnection-server");
 
 // Const folder video
 const folderTemp = "./video/temp";
@@ -22,50 +23,55 @@ const folderTranscode = "./video/transcode";
 io.on("connection", (socket) => {
   console.log("New connection");
 
+  var user = {};
+
   const parameters = socket.handshake.query;
 
-  if (parameters.role && parameters.id) {
-    socket.role = parameters.role;
-    socket.id = parameters.id;
+  access(socket, parameters, user);
 
-    if (socket.role == "streamer") {
-      console.log("Client connected as streamer");
-      var tempFile = null;
-      var id = Date.now();
-      var filename = `video-${id}`; // exemple : video-1620000000000
-    } else if (socket.role == "viewer") {
-      console.log("Client connected as viewer");
-    }
-  } else {
-    console.log("Client disconnected caused by bad parameters");
-    socket.close();
+  if (user.action == "live") {
+    RTCMultiConnectionServer.addSocket(socket);
   }
 
-  socket.on("streamVideo", (message) => {
-    if (socket.role == "streamer") {
+  if (user.role == "streamer") {
+    console.log("Client connected as streamer");
+
+    var tempFile = null;
+    var id = Date.now();
+    var filename = `video-${id}`; // exemple : video-1620000000000
+  } else if (user.role == "viewer") {
+    console.log("Client connected as viewer");
+  }
+
+  socket.on("recordVideo", (event) => {
+    if (user.role == "streamer") {
       if (!tempFile) {
         console.log("Stream started");
         tempFile = createWriteStream(`${folderTemp}/${filename}.tmp`);
       }
-      tempFile.write(message.video);
+      tempFile.write(event.video);
     }
   });
 
   socket.on("disconnect", () => {
-    if (socket.role == "streamer") {
+    if (user.action == "live") {
+      // disconnect-with is a event handled by RTCMultiConnectionServer to disconnect a specific socket
+      socket.emit("disconnect-with", socket.client.conn.id);
+    }
+    if (user.role == "streamer") {
       console.log("Fin d'un stream");
 
       tempFile.end();
       transcodeVideo(filename);
 
-      // Fermeture des viewers
+      // Fermeture des sockets viewers
       // wss.clients.forEach((client) => {
       //   if (client.role == "viewer" && client.id == socket.id) {
       //     client.close();
       //     console.log("Viewer disconnected by ending stream");
       //   }
       // });
-    } else if (socket.role == "viewer") {
+    } else if (user.role == "viewer") {
       console.log("Viewer disconnected");
     }
   });
@@ -74,6 +80,29 @@ io.on("connection", (socket) => {
 // ==============================
 //          fonctions
 // ==============================
+function access(socket, parameters, user) {
+  if (!parameters.sessionid && !parameters.msgEvent) {
+    console.log("Client disconnected caused by bad parameters");
+    socket.disconnect();
+  }
+  let parameterEventSplit = parameters.msgEvent.split("-");
+
+  if (parameterEventSplit.length != 2) {
+    console.log("Client disconnected caused by bad parameters");
+    socket.disconnect();
+  }
+  user.action = parameterEventSplit[0];
+  if (user.action != "live" && user.action != "record") {
+    console.log("Client disconnected caused by bad parameters");
+    socket.disconnect();
+  }
+  user.role = parameterEventSplit[1];
+  if (user.role != "streamer" && user.role != "viewer") {
+    console.log("Client disconnected caused by bad parameters");
+    socket.disconnect();
+  }
+}
+
 function getStatFile(file, durationTranscode) {
   const BYTES_MO = 1024 * 1024;
   let fileSizeInBytes = statSync(file).size;
