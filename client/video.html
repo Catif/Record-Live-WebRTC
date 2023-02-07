@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video</title>
+</head>
+<body>
+  <div>
+    <p id="alert">Veuillez entrer un nom de video</p>
+    <input type="text" name="filename" placeholder="video-19020120921092.mp4">
+    <button id="search">Regarder</button>
+  </div>
+  <video src="" controls autoplay muted></video>
+
+  
+  <script>
+    window.addEventListener('load', () => {
+      const alert = document.querySelector('#alert')
+      const filename = document.querySelector('input[name="filename"]')
+      const search = document.querySelector('#search')
+      const video = document.querySelector('video')
+
+      search.addEventListener('click', searchFile)
+
+      function searchFile(){
+        if(filename.value === ''){
+          alert.innerHTML = 'Veuillez entrer un nom de fichier'
+        } else{
+          alert.innerHTML = ''
+          video.src = `http://localhost:3000/api/video?video=${filename.value}`
+        }
+      }
+    })  
+  </script>
+</body>
+</html>

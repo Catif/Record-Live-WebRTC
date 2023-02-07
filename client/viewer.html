@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Viewer side</title>
+</head>
+<body>
+  <div id="list-streamer">
+    <p id="alerte"></p>
+    <input type="text" name="streamer" placeholder="nameStreamer" value="Catif">
+    <button id="search">Regarder</button>
+  </div>
+
+  <div id="video">
+    <video controls autoplay muted></video>
+  </div>
+
+
+  
+  
+  
+  <script>
+    window.addEventListener('load', () => {
+      const alert = document.querySelector('#alerte');
+      const nameStreamer = document.querySelector('input[name="streamer"]');
+      const search = document.querySelector('#search');
+      const video = document.querySelector('video');
+
+      search.addEventListener('click', searchStream);
+
+      function searchStream(){
+        if(nameStreamer.value === ''){
+          alert.innerHTML = 'Veuillez entrer un nom de streamer';
+        } else{
+          alert.innerHTML = 'Connexion au serveur...';
+          // Récupération du stream
+          var serverSocket = 'ws://localhost:9999';
+          var socket = new WebSocket(`${serverSocket}?role=viewer&id=${nameStreamer.value}`);
+          
+          socket.onerror = (error) => {
+            console.log(error);
+          };
+          
+          socket.onopen =() => {
+            alert.innerHTML = 'Connexion établie avec le serveur, recherche du streamer...';
+          };
+
+          const mediaSource = new MediaSource();
+          video.src = URL.createObjectURL(mediaSource);
+          const segments = [];
+
+          mediaSource.addEventListener('sourceopen', () => {
+            const sourceBuffer = mediaSource.addSourceBuffer('video/webm; codecs="vp8"');
+            
+            sourceBuffer.addEventListener('updateend', () => {
+              if (segments.length > 0) {
+                sourceBuffer.appendBuffer(segments.shift());
+              }
+            });
+          });
+          
+          socket.onmessage = (event) => {
+
+            segments.push(event.data);
+          };
+        }
+      }
+    })
+
+
+
+
+
+  </script>
+</body>
+</html>
