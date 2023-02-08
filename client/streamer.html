@@ -51,6 +51,11 @@
         startRecordBtn.disabled = true;
         stopRecordBtn.disabled = false;
 
+        connection.getSocket();
+        connection.socket.emit("initUser", {
+          role: "streamer",
+        });
+        connection.socket.emit("runStream");
         connection.open(streamer.value);
       });
 
@@ -66,8 +71,8 @@
       var connection = new RTCMultiConnection();
       connection.socketURL = "http://localhost:3000/";
 
-      connection.socketCustomEvent = "live";
-      connection.socketMessageEvent = "viewer";
+      connection.socketCustomEvent = "scudo";
+      connection.socketMessageEvent = "live";
 
       connection.session = {
         audio: true,

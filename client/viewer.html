@@ -9,7 +9,7 @@
   <body>
     <div id="list-streamer">
       <p id="alerte"></p>
-      <input type="text" name="streamer" placeholder="nameStreamer" value="Catif" />
+      <input type="text" name="streamer" placeholder="nameStreamer" value="Catif" width="220px" />
       <button id="search">Regarder</button>
     </div>
 
@@ -30,14 +30,20 @@
           OfferToReceiveAudio: true,
           OfferToReceiveVideo: true,
         };
+
+        connection.getSocket();
+        connection.socket.emit("initUser", {
+          role: "viewer",
+        });
+        connection.socket.emit("runStream");
         connection.join(nameStreamer.value);
       });
 
       var connection = new RTCMultiConnection();
       connection.socketURL = "http://localhost:3000/";
 
-      connection.socketCustomEvent = "live";
-      connection.socketMessageEvent = "viewer";
+      connection.socketCustomEvent = "scudo";
+      connection.socketMessageEvent = "live";
 
       connection.sdpConstraints.mandatory = {
         OfferToReceiveAudio: false,

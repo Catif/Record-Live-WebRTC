@@ -2,6 +2,7 @@ const { createWriteStream, statSync, unlinkSync } = require("fs");
 const ffmpeg = require("fluent-ffmpeg");
 
 const RTCMultiConnectionServer = require("rtcmulticonnection-server");
+
 const { createServer } = require("http");
 const httpServer = createServer();
 const port = 3000;
@@ -11,8 +12,6 @@ const io = require("socket.io")(httpServer, {
     methods: ["GET", "POST"],
   },
 });
-
-const RTCMultiConnectionServer = require("rtcmulticonnection-server");
 
 // Const folder video
 const folderTemp = "./video/temp";
@@ -24,34 +23,44 @@ const folderTranscode = "./video/transcode";
 io.on("connection", (socket) => {
   console.log("New connection");
 
-  var user = {};
-
   const parameters = socket.handshake.query;
+  access(socket, parameters);
 
-  access(socket, parameters, user);
+  // Variables globales
+  var user = {};
+  var file = {};
 
-  if (user.action == "live") {
-    console.log("User Action => live");
+  socket.on("initUser", (event) => {
+    console.log("Init user");
+
+    user.role = event.role;
+    console.log("Role : " + user.role);
+
+    if (user.role == "streamer") {
+      console.log("Streamer connected");
+      initFileVar(file);
+    } else if (user.role == "viewer") {
+      console.log("Viewer connected");
+    }
+  });
+
+  socket.on("runStream", (event) => {
+    console.log("Run stream");
+
     RTCMultiConnectionServer.addSocket(socket);
-  }
+  });
 
-  if (user.role == "streamer") {
-    console.log("Client connected as streamer");
-
-    var tempFile = null;
-    var id = Date.now();
-    var filename = `video-${id}`; // exemple : video-1620000000000
-  } else if (user.role == "viewer") {
-    console.log("Client connected as viewer");
-  }
+  socket.on("record", (role) => {
+    initFileVar(file);
+  });
 
   socket.on("recordVideo", (event) => {
     if (user.role == "streamer") {
-      if (!tempFile) {
+      if (!file.tempFile) {
         console.log("Stream started");
-        tempFile = createWriteStream(`${folderTemp}/${filename}.tmp`);
+        file.tempFile = createWriteStream(`${folderTemp}/${file.filename}.tmp`);
       }
-      tempFile.write(event.video);
+      file.tempFile.write(event.video);
     }
   });
 
@@ -63,8 +72,8 @@ io.on("connection", (socket) => {
     if (user.role == "streamer") {
       console.log("Fin d'un stream");
 
-      tempFile.end();
-      transcodeVideo(filename);
+      file.tempFile.end();
+      transcodeVideo(file.filename);
 
       // Fermeture des sockets viewers
       // wss.clients.forEach((client) => {
@@ -82,21 +91,17 @@ io.on("connection", (socket) => {
 // ==============================
 //          fonctions
 // ==============================
-function access(socket, parameters, user) {
-  if (!parameters.sessionid && !parameters.socketCustomEvent && !parameters.msgEvent) {
+function access(socket, params) {
+  if (!params.sessionid && params.socketEventCustom && !params.msgEvent) {
     console.log("Client disconnected caused by bad parameters");
     socket.disconnect();
   }
-  user.action = parameters.socketCustomEvent;
-  if (user.action != "live" && user.action != "record") {
-    console.log("Client disconnected caused by bad parameters");
-    socket.disconnect();
-  }
-  user.role = parameters.msgEvent;
-  if (user.role != "streamer" && user.role != "viewer") {
-    console.log("Client disconnected caused by bad parameters");
-    socket.disconnect();
-  }
+}
+
+function initFileVar(file) {
+  file.tempFile = null;
+  file.id = Date.now();
+  file.filename = `video-${file.id}`; // exemple : video-1620000000000
 }
 
 function getStatFile(file, durationTranscode) {
