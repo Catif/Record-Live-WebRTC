@@ -1,6 +1,7 @@
 const { createWriteStream, statSync, unlinkSync } = require("fs");
 const ffmpeg = require("fluent-ffmpeg");
 
+const RTCMultiConnectionServer = require("rtcmulticonnection-server");
 const { createServer } = require("http");
 const httpServer = createServer();
 const port = 3000;
@@ -30,6 +31,7 @@ io.on("connection", (socket) => {
   access(socket, parameters, user);
 
   if (user.action == "live") {
+    console.log("User Action => live");
     RTCMultiConnectionServer.addSocket(socket);
   }
 
@@ -81,22 +83,16 @@ io.on("connection", (socket) => {
 //          fonctions
 // ==============================
 function access(socket, parameters, user) {
-  if (!parameters.sessionid && !parameters.msgEvent) {
+  if (!parameters.sessionid && !parameters.socketCustomEvent && !parameters.msgEvent) {
     console.log("Client disconnected caused by bad parameters");
     socket.disconnect();
   }
-  let parameterEventSplit = parameters.msgEvent.split("-");
-
-  if (parameterEventSplit.length != 2) {
-    console.log("Client disconnected caused by bad parameters");
-    socket.disconnect();
-  }
-  user.action = parameterEventSplit[0];
+  user.action = parameters.socketCustomEvent;
   if (user.action != "live" && user.action != "record") {
     console.log("Client disconnected caused by bad parameters");
     socket.disconnect();
   }
-  user.role = parameterEventSplit[1];
+  user.role = parameters.msgEvent;
   if (user.role != "streamer" && user.role != "viewer") {
     console.log("Client disconnected caused by bad parameters");
     socket.disconnect();

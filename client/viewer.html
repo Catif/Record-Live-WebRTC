@@ -13,7 +13,9 @@
       <button id="search">Regarder</button>
     </div>
 
-    <video id="remoteStream" controls autoplay muted playsinline></video>
+    <video id="remoteStream" autoplay muted playsinline></video>
+
+    <div id="videos-container"></div>
 
     <script src="https://muazkhan.com:9001/dist/RTCMultiConnection.min.js"></script>
     <script src="https://muazkhan.com:9001/socket.io/socket.io.js"></script>
@@ -33,7 +35,9 @@
 
       var connection = new RTCMultiConnection();
       connection.socketURL = "http://localhost:3000/";
-      connection.socketMessageEvent = "live-viewer";
+
+      connection.socketCustomEvent = "live";
+      connection.socketMessageEvent = "viewer";
 
       connection.sdpConstraints.mandatory = {
         OfferToReceiveAudio: false,
@@ -57,6 +61,7 @@
         },
       ];
 
+      connection.videosContainer = document.getElementById("videos-container");
       connection.onstream = function (event) {
         console.log(event);
         video.srcObject = event.stream;
@@ -71,6 +76,22 @@
           OfferToReceiveAudio: false,
           OfferToReceiveVideo: false,
         };
+      };
+
+      connection.onMediaError = function (e) {
+        if (e.message === "Concurrent mic process limit.") {
+          if (DetectRTC.audioInputDevices.length <= 1) {
+            alert("Please select external microphone. Check github issue number 483.");
+            return;
+          }
+
+          var secondaryMic = DetectRTC.audioInputDevices[1].deviceId;
+          connection.mediaConstraints.audio = {
+            deviceId: secondaryMic,
+          };
+
+          connection.join(connection.sessionid);
+        }
       };
     </script>
   </body>
