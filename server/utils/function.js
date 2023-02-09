@@ -1,6 +1,6 @@
 import conf from "../conf/configuration.js";
 import ffmpeg from "fluent-ffmpeg";
-import { statSync, unlinkSync } from "fs";
+import { statSync, unlinkSync, existsSync, mkdirSync } from "fs";
 
 // ==============================
 //          fonctions
@@ -15,6 +15,10 @@ export function access(socket, params) {
 export function initFileVar(file) {
   file.tempFile = null;
   conf.createFilename(file);
+
+  if (!existsSync(conf.folderTemp)) {
+    mkdirSync(conf.folderTemp, { recursive: true });
+  }
 }
 
 export function getStatFile(file, durationTranscode) {
@@ -32,6 +36,10 @@ export function getStatFile(file, durationTranscode) {
 }
 
 export function transcodeVideo(filename) {
+  if (!existsSync(conf.folderOutput)) {
+    mkdirSync(conf.folderOutput, { recursive: true });
+  }
+
   // Path
   let pathFileTemp = `${conf.folderTemp}/${filename}.tmp`;
   let pathFileTranscode = `${conf.folderOutput}/${filename}.${conf.transcode.extensionFile}`;
