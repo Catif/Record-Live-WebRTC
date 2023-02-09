@@ -1,6 +1,7 @@
 import { createWriteStream } from "fs";
+import conf from "../conf/configuration.js";
 
-export default (event, user, file, conf) => {
+export default (event, user, file) => {
   if (user.role == "streamer") {
     if (!file.tempFile) {
       console.log("Stream started");
