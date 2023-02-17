@@ -1,0 +1,26 @@
+version: '3'
+networks:
+  demo:
+    driver: bridge
+services:
+  app:
+    image: catif/node-scudo:latest
+    restart: always
+    ports:
+      - 3000:3000
+    networks:
+      - demo
+    volumes:
+      - ./server:/app
+    working_dir: /app
+    command: npm start
+
+  web:
+    image: httpd:latest
+    restart: always
+    ports:
+      - 8000:80
+    volumes:
+      - ./client:/usr/local/apache2/htdocs/
+    networks:
+      - demo
