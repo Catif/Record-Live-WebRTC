@@ -1,104 +1,104 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Viewer side</title>
-  </head>
-  <body>
-    <div id="list-streamer">
-      <p id="alerte"></p>
-      <input type="text" name="streamer" placeholder="nameStreamer" value="Catif" width="220px" />
-      <button id="search">Regarder</button>
-    </div>
+	<head>
+		<meta charset="UTF-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Viewer side</title>
+	</head>
+	<body>
+		<div id="list-streamer">
+			<p id="alerte"></p>
+			<input type="text" name="streamer" placeholder="nameStreamer" value="Catif" width="220px" />
+			<button id="search">Watch</button>
+		</div>
 
-    <video id="remoteStream" autoplay muted playsinline></video>
+		<video id="remoteStream" autoplay muted playsinline></video>
 
-    <div id="videos-container"></div>
+		<div id="videos-container"></div>
 
-    <script src="https://muazkhan.com:9001/dist/RTCMultiConnection.min.js"></script>
-    <script src="https://muazkhan.com:9001/socket.io/socket.io.js"></script>
-    <script>
-      const alert = document.querySelector("#alerte");
-      const nameStreamer = document.querySelector('input[name="streamer"]');
-      const search = document.querySelector("#search");
-      const video = document.querySelector("#remoteStream");
+		<script src="https://muazkhan.com:9001/dist/RTCMultiConnection.min.js"></script>
+		<script src="https://muazkhan.com:9001/socket.io/socket.io.js"></script>
+		<script>
+			const alert = document.querySelector("#alerte");
+			const nameStreamer = document.querySelector('input[name="streamer"]');
+			const search = document.querySelector("#search");
+			const video = document.querySelector("#remoteStream");
 
-      search.addEventListener("click", () => {
-        connection.sdpConstraints.mandatory = {
-          OfferToReceiveAudio: true,
-          OfferToReceiveVideo: true,
-        };
+			search.addEventListener("click", () => {
+				connection.sdpConstraints.mandatory = {
+					OfferToReceiveAudio: true,
+					OfferToReceiveVideo: true,
+				};
 
-        connection.getSocket();
-        connection.socket.emit("initUser", {
-          role: "viewer",
-        });
-        connection.socket.emit("runStream");
-        connection.join(nameStreamer.value);
-      });
+				connection.getSocket();
+				connection.socket.emit("initUser", {
+					role: "viewer",
+				});
+				connection.socket.emit("runStream");
+				connection.join(nameStreamer.value);
+			});
 
-      var connection = new RTCMultiConnection();
-      connection.socketURL = "http://localhost:3000/";
+			var connection = new RTCMultiConnection();
+			connection.socketURL = "http://localhost:3000/";
 
-      connection.socketCustomEvent = "scudo";
-      connection.socketMessageEvent = "live";
+			connection.socketCustomEvent = "scudo";
+			connection.socketMessageEvent = "live";
 
-      connection.sdpConstraints.mandatory = {
-        OfferToReceiveAudio: false,
-        OfferToReceiveVideo: false,
-      };
+			connection.sdpConstraints.mandatory = {
+				OfferToReceiveAudio: false,
+				OfferToReceiveVideo: false,
+			};
 
-      connection.session = {
-        audio: true,
-        video: true,
-        oneway: true,
-      };
+			connection.session = {
+				audio: true,
+				video: true,
+				oneway: true,
+			};
 
-      connection.iceServers = [
-        {
-          urls: [
-            "stun:stun.l.google.com:19302",
-            "stun:stun1.l.google.com:19302",
-            "stun:stun2.l.google.com:19302",
-            "stun:stun.l.google.com:19302?transport=udp",
-          ],
-        },
-      ];
+			connection.iceServers = [
+				{
+					urls: [
+						"stun:stun.l.google.com:19302",
+						"stun:stun1.l.google.com:19302",
+						"stun:stun2.l.google.com:19302",
+						"stun:stun.l.google.com:19302?transport=udp",
+					],
+				},
+			];
 
-      connection.videosContainer = document.getElementById("videos-container");
-      connection.onstream = function (event) {
-        console.log(event);
-        video.srcObject = event.stream;
-      };
+			connection.videosContainer = document.getElementById("videos-container");
+			connection.onstream = function (event) {
+				console.log(event);
+				video.srcObject = event.stream;
+			};
 
-      connection.onstreamended = function (event) {
-        alert("Broadcast is ended.");
+			connection.onstreamended = function (event) {
+				alert("Broadcast is ended.");
 
-        video.srcObject = null;
+				video.srcObject = null;
 
-        connection.sdpConstraints.mandatory = {
-          OfferToReceiveAudio: false,
-          OfferToReceiveVideo: false,
-        };
-      };
+				connection.sdpConstraints.mandatory = {
+					OfferToReceiveAudio: false,
+					OfferToReceiveVideo: false,
+				};
+			};
 
-      connection.onMediaError = function (e) {
-        if (e.message === "Concurrent mic process limit.") {
-          if (DetectRTC.audioInputDevices.length <= 1) {
-            alert("Please select external microphone. Check github issue number 483.");
-            return;
-          }
+			connection.onMediaError = function (e) {
+				if (e.message === "Concurrent mic process limit.") {
+					if (DetectRTC.audioInputDevices.length <= 1) {
+						alert("Please select external microphone. Check github issue number 483.");
+						return;
+					}
 
-          var secondaryMic = DetectRTC.audioInputDevices[1].deviceId;
-          connection.mediaConstraints.audio = {
-            deviceId: secondaryMic,
-          };
+					var secondaryMic = DetectRTC.audioInputDevices[1].deviceId;
+					connection.mediaConstraints.audio = {
+						deviceId: secondaryMic,
+					};
 
-          connection.join(connection.sessionid);
-        }
-      };
-    </script>
-  </body>
+					connection.join(connection.sessionid);
+				}
+			};
+		</script>
+	</body>
 </html>
