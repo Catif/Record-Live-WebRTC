@@ -2,7 +2,7 @@
 
 This is an example of how to record a live stream in real time using RTCMulticonnection and NodeJS.
 
-This project is in link with a bigger students project name [Scudo](https://github.com/Catif/LP-PTUT_Scudo) (actually private).
+This project is in link with a bigger students project name [Scudo](https://github.com/Catif/LP-PTUT_Scudo).
 
 ## Why this project ?
 
